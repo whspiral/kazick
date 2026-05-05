@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Slots Final</title>
+<style>
+body {
+    margin:0;
+    font-family: Arial;
+    background: radial-gradient(circle, #1a1a2e, #0b0b0b);
+    color:white;
+    text-align:center;
+}
+
+.container {
+    max-width:600px;
+    margin:auto;
+    padding:20px;
+    background:#111;
+    border-radius:20px;
+    box-shadow:0 0 30px rgba(0,0,0,0.8);
+}
+
+.topbar {
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:10px;
+}
+
+.panel {
+    background:#1f1f2e;
+    padding:8px 12px;
+    border-radius:10px;
+}
+
+.grid {
+    display:grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap:6px;
+    margin:15px 0;
+    background:#000;
+    padding:10px;
+    border-radius:12px;
+    border:2px solid #333;
+}
+
+.cell {
+    height:70px;
+    font-size:32px;
+    line-height:70px;
+    background:linear-gradient(#222,#111);
+    border-radius:8px;
+    border:2px solid #333;
+    transition:0.2s;
+}
+
+.win {
+    border-color: gold;
+    box-shadow:0 0 10px gold;
+    transform:scale(1.05);
+}
+
+.spinning {
+    animation:spin 0.08s infinite;
+}
+
+@keyframes spin {
+    0%{transform:translateY(-4px)}
+    50%{transform:translateY(4px)}
+    100%{transform:translateY(-4px)}
+}
+
+.controls {
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.control-block {
+    display:flex;
+    flex-direction:column;
+    font-size:12px;
+}
+
+input, button {
+    padding:8px;
+    border:none;
+    border-radius:8px;
+    font-size:14px;
+}
+
+button {
+    background:gold;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+button:disabled {
+    background:#555;
+}
+
+.result {
+    margin-top:10px;
+    font-size:18px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="topbar">
+<div class="panel">💰 <span id="balance">1000</span></div>
+<div class="panel">🎁 FS: <span id="fs">0</span></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="controls">
+<div class="control-block">
+<label>Bet</label>
+<input type="number" id="bet" value="50">
+</div>
+
+<div class="control-block">
+<label>RTP (%)</label>
+<input type="number" id="rtp" value="90">
+</div>
+
+<button onclick="spin()" id="spinBtn">SPIN</button>
+</div>
+
+<div class="result" id="result"></div>
+
+</div>
+
+<script>
+const baseSymbols = [
+{icon:"🍒", mult:2},
+{icon:"🍋", mult:3},
+{icon:"🔔", mult:5},
+{icon:"💎", mult:10},
+{icon:"7️⃣", mult:20}
+];
+
+const wild = {icon:"⭐", type:"wild"};
+const scatter = {icon:"🎁", type:"scatter"};
+
+const rows=3, cols=5;
+
+const lines = [
+[0,0,0,0,0],
+[1,1,1,1,1],
+[2,2,2,2,2],
+[0,1,2,1,0],
+[2,1,0,1,2]
+];
+
+let balance=1000, totalBet=0, totalWin=0, freeSpins=0;
+
+let gridEl=document.getElementById("grid");
+let cells=[];
+
+// создание поля
+for(let r=0;r<rows;r++){
+    cells[r]=[];
+    for(let c=0;c<cols;c++){
+        let d=document.createElement("div");
+        d.className="cell";
+        d.innerText="❓";
+        gridEl.appendChild(d);
+        cells[r][c]=d;
+    }
+}
+
+function randSymbol(){
+    let roll=Math.random();
+    if(roll < 0.02) return scatter;
+    if(roll < 0.07) return wild;
+    return baseSymbols[Math.floor(Math.random()*baseSymbols.length)];
+}
+
+function updateUI(){
+    balanceEl.innerText=balance;
+    fsEl.innerText=freeSpins;
+}
+
+function clearWin(){
+    cells.flat().forEach(c=>c.classList.remove("win"));
+}
+
+function spin(){
+    let bet=+betInput.value;
+    let targetRTP=rtpInput.value/100;
+
+    if(freeSpins===0){
+        if(bet>balance) return alert("Нет денег");
+        balance-=bet;
+        totalBet+=bet;
+    } else {
+        freeSpins--;
+    }
+
+    updateUI();
+    clearWin();
+
+    let all=cells.flat();
+    all.forEach(c=>c.classList.add("spinning"));
+
+    spinBtn.disabled=true;
+    result.innerText="Крутится...";
+
+    setTimeout(()=>{
+
+        let field=[];
+        let expectedWin = totalBet * targetRTP;
+        let allowedWin = expectedWin - totalWin;
+        let winChance = allowedWin > 0 ? 0.6 : 0.2;
+        let forceWin = Math.random() < winChance;
+
+        for(let r=0;r<rows;r++){
+            field[r]=[];
+            for(let c=0;c<cols;c++){
+                let s=randSymbol();
+                field[r][c]=s;
+                cells[r][c].innerText=s.icon;
+            }
+        }
+
+        if(forceWin && allowedWin > 0){
+            let line=lines[Math.floor(Math.random()*lines.length)];
+            let sym=baseSymbols[Math.floor(Math.random()*baseSymbols.length)];
+            for(let c=0;c<3;c++){
+                field[line[c]][c]=sym;
+                cells[line[c]][c].innerText=sym.icon;
+            }
+        }
+
+        all.forEach(c=>c.classList.remove("spinning"));
+
+        let win=0;
+        let winLines=[];
+
+        // scatter → 10 FS
+        let scatters=field.flat().filter(s=>s.type==="scatter").length;
+        if(scatters>=3){
+            freeSpins+=10;
+        }
+
+        lines.forEach(line=>{
+            let base=field[line[0]][0];
+            let count=1;
+
+            for(let c=1;c<cols;c++){
+                let cur=field[line[c]][c];
+                if(cur.icon===base.icon || cur.type==="wild"){
+                    count++;
+                } else break;
+            }
+
+            if(count>=3 && !base.type){
+                let w=bet*base.mult*count;
+                win+=w;
+                winLines.push({line,count});
+            }
+        });
+
+        // анимация линий по очереди
+        let i=0;
+        function anim(){
+            if(i>=winLines.length) return;
+            clearWin();
+            let {line,count}=winLines[i];
+
+            for(let c=0;c<count;c++){
+                cells[line[c]][c].classList.add("win");
+            }
+
+            i++;
+            setTimeout(anim,400);
+        }
+        anim();
+
+        if(win > allowedWin) win = Math.max(0, allowedWin);
+
+        if(win>0){
+            balance+=win;
+            totalWin+=win;
+            result.innerText="🎉 "+win;
+        } else {
+            result.innerText="😢";
+        }
+
+        updateUI();
+        spinBtn.disabled=false;
+
+    },1000);
+}
+
+const betInput=document.getElementById("bet");
+const rtpInput=document.getElementById("rtp");
+const spinBtn=document.getElementById("spinBtn");
+const result=document.getElementById("result");
+const balanceEl=document.getElementById("balance");
+const fsEl=document.getElementById("fs");
+
+updateUI();
+</script>
+
+</body>
+</html>
